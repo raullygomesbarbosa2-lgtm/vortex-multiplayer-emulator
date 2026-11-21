@@ -6,7 +6,7 @@ A versão Android está sendo reconstruída para rodar jogos no aparelho sem Web
 
 - Emulação NES nativa com QuickNES, Android 6+ (ARM64 e ARMv7), controles touch.
 - Seleção da própria ROM NES pelo usuário; aceita `.nes` e ZIP contendo um `.nes`, valida cabeçalho iNES; não incluímos ROMs/BIOS.
-- Corrigido o nome do núcleo usado na busca no diretório nativo: o APK empacota `quicknes_libretro_android.so` sem o prefixo `lib`.
+- Corrigido o nome do núcleo usado na busca no diretório nativo: o APK empacota `libquicknes_libretro_android.so` sem o prefixo `lib`.
 - Botões **CRIAR** e **ENTRAR** na partida para criar ou usar um código de sala.
 - As salas usam o serviço Socket.IO hospedado e retransmitem eventos de controles para o outro participante, identificando a mesma ROM.
 - Isso é **relay experimental de eventos**, não sincronização determinística quadro a quadro: não há rollback, buffer de atraso ou recuperação de estado integrada ao ciclo de emulação. Latência, ordem/tempo de chegada e início em momentos diferentes podem dessincronizar os jogos.

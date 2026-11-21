@@ -163,7 +163,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startNativeGame(rom: File) {
         root.removeAllViews()
-        val core = File(applicationInfo.nativeLibraryDir, "quicknes_libretro_android.so")
+        val core = File(applicationInfo.nativeLibraryDir, "libquicknes_libretro_android.so")
         if (!core.exists()) {
             Toast.makeText(this, "Núcleo NES ARM64 não veio neste APK.", Toast.LENGTH_LONG).show()
             showHome(); return
