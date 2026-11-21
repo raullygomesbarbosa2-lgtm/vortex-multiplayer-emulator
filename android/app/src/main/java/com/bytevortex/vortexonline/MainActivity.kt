@@ -1,6 +1,8 @@
 package com.bytevortex.vortexonline
 
 import android.content.Intent
+import java.io.BufferedInputStream
+import java.util.zip.ZipInputStream
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -98,26 +100,70 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != PICK_ROM || resultCode != RESULT_OK) return
         val uri = data?.data ?: return
-        try {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (_: Exception) { }
         Thread {
             try {
                 val target = File(cacheDir, "game.nes")
-                contentResolver.openInputStream(uri).use { input ->
-                    requireNotNull(input) { "Não consegui ler o arquivo." }
-                    target.outputStream().use { output -> input.copyTo(output) }
+                contentResolver.openInputStream(uri).use { raw ->
+                    requireNotNull(raw) { "Não consegui ler o arquivo escolhido." }
+                    BufferedInputStream(raw).use { input ->
+                        input.mark(8)
+                        val signature = ByteArray(4)
+                        val count = input.read(signature)
+                        input.reset()
+                        if (count >= 2 && signature[0] == 'P'.code.toByte() && signature[1] == 'K'.code.toByte()) {
+                            extractNesFromZip(input, target)
+                        } else {
+                            target.outputStream().use { output -> copyBounded(input, output) }
+                        }
+                    }
                 }
+                validateNesRom(target)
                 runOnUiThread { startNativeGame(target) }
             } catch (e: Exception) {
-                runOnUiThread { Toast.makeText(this, "Falha ao abrir a ROM: ${e.message}", Toast.LENGTH_LONG).show() }
+                runOnUiThread { Toast.makeText(this, "Não consegui abrir essa ROM NES: ${e.message ?: "arquivo inválido"}", Toast.LENGTH_LONG).show() }
             }
         }.start()
     }
 
+    private fun extractNesFromZip(input: BufferedInputStream, target: File) {
+        ZipInputStream(input).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name.lowercase().endsWith(".nes")) {
+                    target.outputStream().use { output -> copyBounded(zip, output) }
+                    return
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        throw IllegalArgumentException("o ZIP não contém um arquivo .nes.")
+    }
+
+    private fun copyBounded(input: java.io.InputStream, output: java.io.OutputStream) {
+        val buffer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val size = input.read(buffer)
+            if (size < 0) break
+            total += size
+            require(total <= 128L * 1024 * 1024) { "arquivo maior que 128 MB." }
+            output.write(buffer, 0, size)
+        }
+    }
+
+    private fun validateNesRom(rom: File) {
+        require(rom.length() >= 16) { "arquivo vazio ou pequeno demais." }
+        val header = ByteArray(4)
+        rom.inputStream().use { input -> require(input.read(header) == 4) { "cabeçalho incompleto." } }
+        require(header.contentEquals(byteArrayOf(0x4e, 0x45, 0x53, 0x1a))) {
+            "esperava um .nes válido (ou ZIP contendo um .nes)."
+        }
+    }
+
     private fun startNativeGame(rom: File) {
         root.removeAllViews()
-        val core = File(applicationInfo.nativeLibraryDir, "libquicknes_libretro_android.so")
+        val core = File(applicationInfo.nativeLibraryDir, "quicknes_libretro_android.so")
         if (!core.exists()) {
             Toast.makeText(this, "Núcleo NES ARM64 não veio neste APK.", Toast.LENGTH_LONG).show()
             showHome(); return

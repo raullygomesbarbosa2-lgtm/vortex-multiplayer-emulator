@@ -36,9 +36,9 @@ jobs:
       - name: Publicar APK nativo de teste
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-native-alpha-3
-          name: Vortex Online Native Alpha 3 (NES + relay)
+          tag_name: android-native-alpha-4
+          name: Vortex Online Native Alpha 4 (ROM fix + relay)
           prerelease: true
-          body: 'Protótipo Android nativo sem WebView: NES QuickNES, controles touch, criar/entrar sala e relay de eventos de controle; a sala compara o identificador da ROM. Ainda não implementa sincronização determinística por quadro, buffer de atraso nem rollback; a partida pode dessincronizar. Compilação CI passou; servidor Socket.IO validado com clientes de teste, mas app não validado em aparelho real nem em partida por dois telefones. Android 6+ ARM64/ARMv7.'
+          body: 'Alpha nativa sem WebView. Corrige o caminho do núcleo NES QuickNES; aceita ROM NES direta e ZIP contendo arquivo .nes, validando o cabeçalho; sala e relay de comandos experimentais. Relay verificado com dois clientes de teste, mas app e partida em telefones não validados. Sem sincronização determinística por quadro, atraso compensado ou rollback; pode dessincronizar. Android 6+ ARM64/ARMv7.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: false
