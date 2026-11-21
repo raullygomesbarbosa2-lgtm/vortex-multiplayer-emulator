@@ -20,7 +20,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - uses: android-actions/setup-android@v3
+      - name: Preparar SDK Android
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
       - name: Compilar APK
         run: gradle --no-daemon -p android assembleDebug
       - name: Guardar APK como artefato
@@ -34,6 +37,6 @@ jobs:
         with:
           tag_name: android-beta-1
           name: Vortex Online Beta 1
-          body: 'Primeiro APK Android do Vortex Online. O APK empacota o site e usa ROMs selecionadas pelo jogador. O netplay foi compilado/configurado, mas a partida entre aparelhos ainda requer validação real. Android 6.0+.'
+          body: 'Primeiro APK Android do Vortex Online. O APK empacota o site e usa ROMs selecionadas pelo jogador. O servidor de netplay está configurado, mas a partida entre aparelhos ainda requer validação real. Android 6.0+.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
