@@ -4,9 +4,27 @@ A versão Android está sendo reconstruída para rodar jogos no aparelho sem Web
 
 ## O que há nesta alpha
 
-- Emulação NES nativa com QuickNES, Android 6+ (ARM64 e ARMv7), controles touch.
-- Seleção da própria ROM NES pelo usuário; aceita `.nes` e ZIP contendo um `.nes`, valida cabeçalho iNES; não incluímos ROMs/BIOS.
-- Corrigido o nome do núcleo usado na busca no diretório nativo: o APK empacota `libquicknes_libretro_android.so` sem o prefixo `lib`.
+- Emulação NES nativa com QuickNES e Super Nintendo com Snes9x, Android 6+ (ARM64 e ARMv7), controles touch.
+- O usuário escolhe ROM própria `.nes`, `.sfc` ou `.smc`, também dentro de ZIP. Não incluímos jogos nem ROMs.
+- As bibliotecas nativas QuickNES e Snes9x são empacotadas como `libquicknes_libretro_android.so` e `libsnes9x_libretro_android.so`.
+- A licença Snes9x permite uso e redistribuição somente para fins não comerciais; autorização dos titulares é necessária para produto comercial. O aviso/licença está em `android/app/src/main/assets/licenses/Snes9x-LICENSE.txt` e dentro do APK.
+
+## ROMs
+
+O app não distribui nenhum jogo, ROM ou BIOS. O jogador escolhe um arquivo próprio no aparelho. Formatos aceitos: `.nes`, `.sfc`, `.smc`, ou ZIP contendo um desses arquivos.
+
+## Multiplayer
+
+A Alpha retransmite eventos de controle por sala, mas ainda não sincroniza quadros nem oferece rollback; não é garantia de partida sincronizada.
+
+## Dependências e licenças
+
+- [LibretroDroid](https://github.com/Swordfish90/LibretroDroid) (GPL-3.0), frontend nativo Android.
+- [QuickNES Android builds](https://buildbot.libretro.com/nightly/android/latest/arm64-v8a/) para NES.
+- Snes9x core Android do Libretro Buildbot para Super Nintendo; não comercial, consulte o arquivo de licença acima.
+- Os núcleos são componentes separados e a ROM permanece fornecida pelo usuário.
+
+Build CI aprovado não substitui testes de jogo em aparelhos reais.
 - Botões **CRIAR** e **ENTRAR** na partida para criar ou usar um código de sala.
 - As salas usam o serviço Socket.IO hospedado e retransmitem eventos de controles para o outro participante, identificando a mesma ROM.
 - Isso é **relay experimental de eventos**, não sincronização determinística quadro a quadro: não há rollback, buffer de atraso ou recuperação de estado integrada ao ciclo de emulação. Latência, ordem/tempo de chegada e início em momentos diferentes podem dessincronizar os jogos.

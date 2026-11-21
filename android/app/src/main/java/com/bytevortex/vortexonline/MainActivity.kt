@@ -1,6 +1,8 @@
 package com.bytevortex.vortexonline
 
 import android.content.Intent
+import android.database.Cursor
+import android.provider.OpenableColumns
 import java.io.BufferedInputStream
 import java.util.zip.ZipInputStream
 import android.graphics.Color
@@ -35,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private var netplay: NetplayClient? = null
     private var roomStatus: TextView? = null
     private var romId: String = ""
+    private var systemId: String = "nes"
+    private var systemLabel: String = "Nintendo NES"
 
     companion object { private const val PICK_ROM = 4012 }
 
@@ -64,23 +68,23 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
         }
         val heading = TextView(this).apply {
-            text = "Emulação nativa • Nintendo NES"
+            text = "Emulação nativa • NES e Super Nintendo"
             setTextColor(Color.WHITE); textSize = 19f; gravity = Gravity.CENTER
             setPadding(0, dp(20), 0, dp(10))
         }
         status = TextView(this).apply {
-            text = "Selecione uma ROM NES que você possui. O jogo roda no aparelho, sem WebView."
+            text = "Escolha uma ROM NES (.nes) ou Super Nintendo (.sfc/.smc) sua. O jogo roda no aparelho, sem WebView."
             setTextColor(Color.LTGRAY); textSize = 14f; gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(18))
         }
-        val pick = button("ESCOLHER ROM NES") { pickRom() }
+        val pick = button("ESCOLHER ROM NES / SNES") { pickRom() }
         val multiplayer = TextView(this).apply {
             text = "MULTIPLAYER À DISTÂNCIA: salas e relay de comandos em alpha"
             setTextColor(Color.rgb(255, 213, 120)); textSize = 13f; gravity = Gravity.CENTER
             setPadding(0, dp(24), 0, dp(5))
         }
         val disclosure = TextView(this).apply {
-            text = "NES roda nativamente, sem WebView. Crie/entre numa sala para retransmitir comandos. Ainda não há sincronização por quadro nem rollback: pode dessincronizar e não foi validado entre celulares. Não inclui ROMs/BIOS."
+            text = "NES e Super Nintendo rodam nativamente, sem WebView. Selecione suas ROMs .nes/.sfc/.smc ou ZIP. Não incluí jogos nem ROMs. Multiplayer ainda é experimental e pode dessincronizar."
             setTextColor(Color.rgb(177, 195, 184)); textSize = 12f; gravity = Gravity.CENTER
         }
         listOf(logo, heading, status, pick, multiplayer, disclosure).forEach { panel.addView(it, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)) }
@@ -102,42 +106,63 @@ class MainActivity : AppCompatActivity() {
         val uri = data?.data ?: return
         Thread {
             try {
-                val target = File(cacheDir, "game.nes")
-                contentResolver.openInputStream(uri).use { raw ->
-                    requireNotNull(raw) { "Não consegui ler o arquivo escolhido." }
-                    BufferedInputStream(raw).use { input ->
-                        input.mark(8)
-                        val signature = ByteArray(4)
-                        val count = input.read(signature)
-                        input.reset()
-                        if (count >= 2 && signature[0] == 'P'.code.toByte() && signature[1] == 'K'.code.toByte()) {
-                            extractNesFromZip(input, target)
-                        } else {
-                            target.outputStream().use { output -> copyBounded(input, output) }
-                        }
+                val displayName = getDisplayName(uri)?.lowercase() ?: uri.lastPathSegment?.lowercase().orEmpty()
+                val isZip = displayName.endsWith(".zip") || isZipDocument(uri)
+                val target = if (isZip) {
+                    contentResolver.openInputStream(uri).use { raw ->
+                        requireNotNull(raw) { "Não consegui ler o ZIP escolhido." }
+                        extractSupportedRom(BufferedInputStream(raw))
                     }
+                } else {
+                    val extension = displayName.substringAfterLast('.', "")
+                    require(extension in setOf("nes", "sfc", "smc")) { "Escolha um arquivo .nes, .sfc, .smc ou ZIP contendo um desses arquivos." }
+                    val file = File(cacheDir, "game.$extension")
+                    contentResolver.openInputStream(uri).use { raw ->
+                        requireNotNull(raw) { "Não consegui ler o arquivo escolhido." }
+                        file.outputStream().use { output -> copyBounded(BufferedInputStream(raw), output) }
+                    }
+                    file
                 }
-                validateNesRom(target)
-                runOnUiThread { startNativeGame(target) }
+                val system = validateRom(target)
+                runOnUiThread { startNativeGame(target, system) }
             } catch (e: Exception) {
-                runOnUiThread { Toast.makeText(this, "Não consegui abrir essa ROM NES: ${e.message ?: "arquivo inválido"}", Toast.LENGTH_LONG).show() }
+                runOnUiThread { Toast.makeText(this, "Não consegui abrir essa ROM: ${e.message ?: "arquivo inválido"}", Toast.LENGTH_LONG).show() }
             }
         }.start()
     }
 
-    private fun extractNesFromZip(input: BufferedInputStream, target: File) {
+    private fun isZipDocument(uri: Uri): Boolean {
+        return try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                val signature = ByteArray(4)
+                input.read(signature) == 4 && signature[0] == 'P'.code.toByte() && signature[1] == 'K'.code.toByte()
+            } ?: false
+        } catch (_: Exception) { false }
+    }
+
+    private fun getDisplayName(uri: Uri): String? {
+        var cursor: Cursor? = null
+        return try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            if (cursor?.moveToFirst() == true) cursor?.getString(0) else null
+        } catch (_: Exception) { null } finally { cursor?.close() }
+    }
+
+    private fun extractSupportedRom(input: BufferedInputStream): File {
         ZipInputStream(input).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                if (!entry.isDirectory && entry.name.lowercase().endsWith(".nes")) {
+                val extension = entry.name.substringAfterLast('.', "").lowercase()
+                if (!entry.isDirectory && extension in setOf("nes", "sfc", "smc")) {
+                    val target = File(cacheDir, "game.$extension")
                     target.outputStream().use { output -> copyBounded(zip, output) }
-                    return
+                    return target
                 }
                 zip.closeEntry()
                 entry = zip.nextEntry
             }
         }
-        throw IllegalArgumentException("o ZIP não contém um arquivo .nes.")
+        throw IllegalArgumentException("o ZIP não contém arquivo .nes, .sfc ou .smc.")
     }
 
     private fun copyBounded(input: java.io.InputStream, output: java.io.OutputStream) {
@@ -152,20 +177,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun validateNesRom(rom: File) {
-        require(rom.length() >= 16) { "arquivo vazio ou pequeno demais." }
-        val header = ByteArray(4)
-        rom.inputStream().use { input -> require(input.read(header) == 4) { "cabeçalho incompleto." } }
-        require(header.contentEquals(byteArrayOf(0x4e, 0x45, 0x53, 0x1a))) {
-            "esperava um .nes válido (ou ZIP contendo um .nes)."
+    private fun validateRom(rom: File): String {
+        val extension = rom.extension.lowercase()
+        return when (extension) {
+            "nes" -> {
+                require(rom.length() >= 16) { "arquivo NES vazio ou pequeno demais." }
+                val header = ByteArray(4)
+                rom.inputStream().use { input -> require(input.read(header) == 4) { "cabeçalho NES incompleto." } }
+                require(header.contentEquals(byteArrayOf(0x4e, 0x45, 0x53, 0x1a))) { "o arquivo .nes não tem um cabeçalho iNES válido." }
+                "nes"
+            }
+            "sfc", "smc" -> {
+                require(rom.length() >= 0x8000) { "arquivo SNES vazio ou pequeno demais." }
+                "snes"
+            }
+            else -> throw IllegalArgumentException("formato não reconhecido. Use .nes, .sfc ou .smc.")
         }
     }
 
-    private fun startNativeGame(rom: File) {
+    private fun startNativeGame(rom: File, system: String) {
         root.removeAllViews()
-        val core = File(applicationInfo.nativeLibraryDir, "libquicknes_libretro_android.so")
+        systemId = system
+        systemLabel = if (system == "snes") "Super Nintendo" else "NES"
+        val coreName = if (system == "snes") "libsnes9x_libretro_android.so" else "libquicknes_libretro_android.so"
+        val core = File(applicationInfo.nativeLibraryDir, coreName)
         if (!core.exists()) {
-            Toast.makeText(this, "Núcleo NES ARM64 não veio neste APK.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Núcleo $systemLabel não veio neste APK.", Toast.LENGTH_LONG).show()
             showHome(); return
         }
         val viewData = GLRetroViewData(this).apply {
@@ -175,7 +212,14 @@ class MainActivity : AppCompatActivity() {
             savesDirectory = File(filesDir, "saves").apply { mkdirs() }.absolutePath
             shader = ShaderConfig.Default
         }
-        romId = try { MessageDigest.getInstance("SHA-256").digest(rom.readBytes()).take(8).joinToString("") { "%02x".format(it) } } catch (_: Exception) { "unknown" }
+        romId = try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            rom.inputStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) { val size = input.read(buffer); if (size < 0) break; digest.update(buffer, 0, size) }
+            }
+            "$system:" + digest.digest().take(8).joinToString("") { "%02x".format(it) }
+        } catch (_: Exception) { "unknown" }
         val game = GLRetroView(this, viewData)
         retroView = game
         lifecycle.addObserver(game)
@@ -185,7 +229,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun addOverlayControls() {
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(4), dp(6), dp(4)); setBackgroundColor(0x99040b07.toInt()) }
-        roomStatus = TextView(this).apply { text = "NES local • ROM ${romId.take(8)}"; setTextColor(Color.WHITE); textSize = 10f; maxLines = 2 }
+        roomStatus = TextView(this).apply { text = "$systemLabel local • ROM ${romId.takeLast(8)}"; setTextColor(Color.WHITE); textSize = 10f; maxLines = 2 }
         val create = miniButton("CRIAR") { openRoomDialog(true) }
         val join = miniButton("ENTRAR") { openRoomDialog(false) }
         val close = miniButton("VOLTAR") { closeGame() }
@@ -246,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".random() }.joinToString("")
             connectRoom(code, true)
             AlertDialog.Builder(this).setTitle("Código da sala")
-                .setMessage("Compartilhe este código com a outra pessoa: $code\n\nOs dois precisam abrir a mesma ROM NES. A retransmissão de controles é experimental; ainda pode haver dessincronização.")
+                .setMessage("Compartilhe este código com a outra pessoa: $code\n\nOs dois precisam abrir a mesma ROM e o mesmo sistema ($systemLabel). A retransmissão de controles é experimental; ainda pode haver dessincronização.")
                 .setPositiveButton("OK", null).show()
         } else {
             val field = EditText(this).apply { hint = "Código da sala"; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS }
