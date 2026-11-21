@@ -5,6 +5,7 @@ on:
     paths:
       - 'android/**'
       - '.github/workflows/android.yml'
+      - 'README.md'
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,19 +25,20 @@ jobs:
         with:
           cmdline-tools-version: '12266719'
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-      - name: Compilar APK
+      - name: Compilar APK nativo
         run: gradle --no-daemon -p android assembleDebug
       - name: Guardar APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: Vortex-Online-Android-APK
+          name: Vortex-Online-Native-Alpha-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      - name: Publicar APK Beta
+      - name: Publicar APK nativo de teste
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-beta-1
-          name: Vortex Online Beta 1
-          body: 'Primeiro APK Android do Vortex Online. O APK empacota o site e usa ROMs selecionadas pelo jogador. O servidor de netplay está configurado, mas a partida entre aparelhos ainda requer validação real. Android 6.0+.'
+          tag_name: android-native-alpha-1
+          name: Vortex Online Native Alpha 1 (NES)
+          prerelease: true
+          body: 'Protótipo de emulação Android nativa sem WebView. Inclui somente o núcleo NES QuickNES e controles touch; ainda não implementa sala nem sincronização multiplayer. Teste de compilação CI somente; não validado em aparelho real. Android 6+ ARM64/ARMv7.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
-          make_latest: true
+          make_latest: false
