@@ -72,10 +72,20 @@ class NetplayClient(
             }
             s.on(Socket.EVENT_DISCONNECT) { listener.onStatus("Conexão com a sala interrompida.") }
             s.on("users-updated") { args ->
-                val players = args.firstOrNull() as? JSONObject
-                val count = players?.length() ?: 0
+                val players = args.firstOrNull() as? JSONObject ?: return@on
+                val keys = players.keys()
+                while (keys.hasNext()) {
+                    val player = players.optJSONObject(keys.next()) ?: continue
+                    val otherRom = player.optString("game_id")
+                    if (otherRom.isNotEmpty() && otherRom != romId) {
+                        listener.onRoomError("A sala está usando outra ROM. Os dois precisam selecionar o mesmo arquivo.")
+                        disconnect()
+                        return@on
+                    }
+                }
+                val count = players.length()
                 listener.onRoomPlayers(count)
-                listener.onStatus(if (count >= 2) "Dois jogadores na sala; controles podem ser retransmitidos." else "Sala $roomCode aberta. Aguardando o outro jogador…")
+                listener.onStatus(if (count >= 2) "Dois jogadores na sala; relay ativo, sincronização experimental." else "Sala $roomCode aberta. Aguardando o outro jogador…")
             }
             s.on("input") { args ->
                 try {

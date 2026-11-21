@@ -9,7 +9,8 @@ A versão Android está sendo reconstruída para rodar jogos no aparelho sem Web
 - Botões **CRIAR** e **ENTRAR** na partida para criar ou usar um código de sala.
 - As salas usam o serviço Socket.IO hospedado e retransmitem eventos de controles para o outro participante, identificando a mesma ROM.
 - Isso é **relay experimental de eventos**, não sincronização determinística quadro a quadro: não há rollback, buffer de atraso ou recuperação de estado integrada ao ciclo de emulação. Latência, ordem/tempo de chegada e início em momentos diferentes podem dessincronizar os jogos.
-- Compilação em CI passou; instalação, execução de jogo e partida entre dois telefones ainda precisam de testes reais.
+- Relay do servidor foi verificado com clientes de teste: criação de sala, entrada de outro cliente e entrega de evento `input` funcionaram. A integração do app Android, instalação, execução de jogo e partida entre dois telefones ainda precisam de teste real.
+- Mesmo com o relay de eventos verificado, não há sincronização determinística por quadro; o jogo pode ficar dessincronizado.
 
 ## O que ainda falta para chamar de multiplayer funcionando
 
