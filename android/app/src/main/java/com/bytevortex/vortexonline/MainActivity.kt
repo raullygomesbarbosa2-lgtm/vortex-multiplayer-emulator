@@ -12,20 +12,27 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import com.swordfish.libretrodroid.GLRetroView
 import com.swordfish.libretrodroid.GLRetroViewData
 import com.swordfish.libretrodroid.ShaderConfig
 import java.io.File
+import java.security.MessageDigest
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
     private lateinit var root: FrameLayout
     private var retroView: GLRetroView? = null
     private lateinit var status: TextView
+    private var netplay: NetplayClient? = null
+    private var roomStatus: TextView? = null
+    private var romId: String = ""
 
     companion object { private const val PICK_ROM = 4012 }
 
@@ -66,12 +73,12 @@ class MainActivity : AppCompatActivity() {
         }
         val pick = button("ESCOLHER ROM NES") { pickRom() }
         val multiplayer = TextView(this).apply {
-            text = "MULTIPLAYER À DISTÂNCIA: EM DESENVOLVIMENTO"
+            text = "MULTIPLAYER À DISTÂNCIA: salas e relay de comandos em alpha"
             setTextColor(Color.rgb(255, 213, 120)); textSize = 13f; gravity = Gravity.CENTER
             setPadding(0, dp(24), 0, dp(5))
         }
         val disclosure = TextView(this).apply {
-            text = "Esta primeira etapa é o motor nativo local. A sala online e a sincronização entre dois celulares ainda precisam ser implementadas e testadas. Não inclui ROMs nem BIOS."
+            text = "NES roda nativamente, sem WebView. Crie/entre numa sala para retransmitir comandos. Ainda não há sincronização por quadro nem rollback: pode dessincronizar e não foi validado entre celulares. Não inclui ROMs/BIOS."
             setTextColor(Color.rgb(177, 195, 184)); textSize = 12f; gravity = Gravity.CENTER
         }
         listOf(logo, heading, status, pick, multiplayer, disclosure).forEach { panel.addView(it, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)) }
@@ -122,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             savesDirectory = File(filesDir, "saves").apply { mkdirs() }.absolutePath
             shader = ShaderConfig.Default
         }
+        romId = try { MessageDigest.getInstance("SHA-256").digest(rom.readBytes()).take(8).joinToString("") { "%02x".format(it) } } catch (_: Exception) { "unknown" }
         val game = GLRetroView(this, viewData)
         retroView = game
         lifecycle.addObserver(game)
@@ -130,11 +138,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addOverlayControls() {
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(6), dp(10), dp(6)); setBackgroundColor(0x88040b07.toInt()) }
-        val roomLabel = TextView(this).apply { text = "NES nativo • 2 jogadores online ainda não ativo"; setTextColor(Color.WHITE); textSize = 12f }
-        val close = TextView(this).apply { text = "ROMs"; setTextColor(Color.rgb(112,255,155)); gravity = Gravity.CENTER; setPadding(dp(14),dp(8),dp(8),dp(8)); setOnClickListener { closeGame() } }
-        bar.addView(roomLabel, LinearLayout.LayoutParams(0, dp(42), 1f)); bar.addView(close)
-        root.addView(bar, FrameLayout.LayoutParams(-1, dp(48), Gravity.TOP))
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(4), dp(6), dp(4)); setBackgroundColor(0x99040b07.toInt()) }
+        roomStatus = TextView(this).apply { text = "NES local • ROM ${romId.take(8)}"; setTextColor(Color.WHITE); textSize = 10f; maxLines = 2 }
+        val create = miniButton("CRIAR") { openRoomDialog(true) }
+        val join = miniButton("ENTRAR") { openRoomDialog(false) }
+        val close = miniButton("VOLTAR") { closeGame() }
+        bar.addView(roomStatus, LinearLayout.LayoutParams(0, dp(42), 1f)); bar.addView(create); bar.addView(join); bar.addView(close)
+        root.addView(bar, FrameLayout.LayoutParams(-1, dp(50), Gravity.TOP))
 
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(16)) }
         val dpad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
@@ -164,10 +174,61 @@ class MainActivity : AppCompatActivity() {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(0x990d2618.toInt()); setStroke(dp(1), 0x9970ff9b.toInt()) }
             setOnTouchListener { _, event ->
                 val action = when (event.actionMasked) { MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> KeyEvent.ACTION_DOWN; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> KeyEvent.ACTION_UP; else -> return@setOnTouchListener true }
-                retroView?.sendKeyEvent(action, key, 0)
+                dispatchControl(action, key)
                 true
             }
         }
+    }
+
+    private fun miniButton(text: String, onClick: () -> Unit) = TextView(this).apply {
+        this.text = text; gravity = Gravity.CENTER; textSize = 10f; setTextColor(Color.rgb(112, 255, 155))
+        setPadding(dp(7), dp(8), dp(7), dp(8)); setOnClickListener { onClick() }
+    }
+
+    private fun dispatchControl(action: Int, keyCode: Int) {
+        val client = netplay
+        val localPort = if (client?.isConnected() == true) client.localPort() else 0
+        retroView?.sendKeyEvent(action, keyCode, localPort)
+        client?.sendInput(action, keyCode)
+    }
+
+    private fun openRoomDialog(create: Boolean) {
+        if (romId.isBlank() || romId == "unknown") {
+            Toast.makeText(this, "Não consegui identificar a ROM; escolha o arquivo novamente.", Toast.LENGTH_LONG).show(); return
+        }
+        if (create) {
+            val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".random() }.joinToString("")
+            connectRoom(code, true)
+            AlertDialog.Builder(this).setTitle("Código da sala")
+                .setMessage("Compartilhe este código com a outra pessoa: $code\n\nOs dois precisam abrir a mesma ROM NES. A retransmissão de controles é experimental; ainda pode haver dessincronização.")
+                .setPositiveButton("OK", null).show()
+        } else {
+            val field = EditText(this).apply { hint = "Código da sala"; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS }
+            AlertDialog.Builder(this).setTitle("Entrar na sala").setMessage("Digite o código que o outro jogador compartilhou.")
+                .setView(field).setNegativeButton("Cancelar", null)
+                .setPositiveButton("Entrar") { _, _ -> connectRoom(field.text.toString(), false) }.show()
+        }
+    }
+
+    private fun connectRoom(code: String, create: Boolean) {
+        netplay?.disconnect()
+        val client = NetplayClient(object : NetplayClient.Listener {
+            override fun onStatus(text: String) = runOnUiThread {
+                roomStatus?.text = text
+            }
+            override fun onRoomPlayers(count: Int) = runOnUiThread {
+                if (count >= 2) roomStatus?.text = "Sala conectada: 2 jogadores. Comandos retransmitidos; sincronização ainda experimental."
+            }
+            override fun onRemoteInput(action: Int, keyCode: Int, sequence: Long) = runOnUiThread {
+                retroView?.sendKeyEvent(action, keyCode, netplay?.remotePort() ?: 0)
+            }
+            override fun onRoomError(text: String) = runOnUiThread {
+                roomStatus?.text = "Falha na sala"
+                Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
+            }
+        })
+        netplay = client
+        if (create) client.open(code, romId) else client.join(code, romId)
     }
 
     private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
@@ -178,6 +239,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun closeGame() {
+        netplay?.disconnect()
+        netplay = null
+        roomStatus = null
         retroView?.let { lifecycle.removeObserver(it) }
         retroView = null
         showHome()
@@ -186,12 +250,12 @@ class MainActivity : AppCompatActivity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        retroView?.sendKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0)
+        dispatchControl(KeyEvent.ACTION_DOWN, keyCode)
         return super.onKeyDown(keyCode, event)
     }
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        retroView?.sendKeyEvent(KeyEvent.ACTION_UP, keyCode, 0)
+        dispatchControl(KeyEvent.ACTION_UP, keyCode)
         return super.onKeyUp(keyCode, event)
     }
-    override fun onDestroy() { retroView?.let { lifecycle.removeObserver(it) }; super.onDestroy() }
+    override fun onDestroy() { netplay?.disconnect(); retroView?.let { lifecycle.removeObserver(it) }; super.onDestroy() }
 }

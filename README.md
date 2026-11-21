@@ -1,26 +1,29 @@
-# Vortex Online — protótipo nativo
+# Vortex Online — protótipo Android nativo e multiplayer alpha
 
-Estamos reconstruindo a versão Android para rodar jogos no aparelho sem WebView. A versão web antiga continua publicada, mas o foco novo é um frontend Android nativo com núcleos Libretro.
+A versão Android está sendo reconstruída para rodar jogos no aparelho sem WebView.
 
-## Estado real desta build
+## O que há nesta alpha
 
-- Protótipo Android nativo (sem WebView) para Android 6+, com o núcleo NES QuickNES e controles touch.
-- O usuário escolhe sua própria ROM NES pelo seletor de arquivos; nenhuma ROM/BIOS é distribuída.
-- O primeiro APK nativo ainda é **single-player**: sala, envio de comandos remotos e sincronização multiplayer ainda não estão implementados.
-- Compilação CI não equivale a teste de instalação, execução ou partida em dois celulares.
-- A beta WebView anterior não representa o produto pedido e foi substituída pelo alvo nativo deste desenvolvimento.
+- Emulação NES nativa com QuickNES, Android 6+ (ARM64 e ARMv7), controles touch.
+- Seleção da própria ROM NES pelo usuário; não incluímos ROMs/BIOS.
+- Botões **CRIAR** e **ENTRAR** na partida para criar ou usar um código de sala.
+- As salas usam o serviço Socket.IO hospedado e retransmitem eventos de controles para o outro participante, identificando a mesma ROM.
+- Isso é **relay experimental de eventos**, não sincronização determinística quadro a quadro: não há rollback, buffer de atraso ou recuperação de estado integrada ao ciclo de emulação. Latência, ordem/tempo de chegada e início em momentos diferentes podem dessincronizar os jogos.
+- Compilação em CI passou; instalação, execução de jogo e partida entre dois telefones ainda precisam de testes reais.
 
-## Plano de implementação
+## O que ainda falta para chamar de multiplayer funcionando
 
-1. Validar o frontend e o núcleo nativos em aparelho.
-2. Adicionar criação/entrada em sala e relay autenticado de comandos entre os dispositivos.
-3. Sincronizar comandos no mesmo quadro, conferir ROM/núcleo/versões e recuperar diferenças de estado.
-4. Validar uma partida real em dois celulares e só então ampliar núcleos/sistemas.
+1. Validar instalação/abertura e carregamento de ROM num aparelho Android real.
+2. Fazer uma sessão em dois celulares, redes distintas, verificar criação/entrada de sala e chegada de inputs nos dois lados.
+3. Integrar comandos remotos ao mesmo número de quadro em ambos os núcleos, com política de atraso, sincronização de início e tratamento de perda/jitter.
+4. Integrar estados salvos para recuperação de dessincronização (ou adotar outro protocolo adequado ao núcleo), medir latência e testar desconexão/reconexão.
+5. Só então ampliar do NES para outros núcleos/sistemas, testando cada um separadamente.
 
-Um relay online sozinho não implementa netplay. A sincronização precisa ser integrada ao ciclo de execução do emulador; o desempenho e a estabilidade também variam por núcleo e aparelho.
+Um relay de comandos não é prova de que o jogo está sincronizado. Os jogadores precisam do mesmo núcleo e do mesmo arquivo de jogo.
 
-## Dependências e licenças
+## Base e dependências
 
-- Frontend: [LibretroDroid](https://github.com/Swordfish90/LibretroDroid) (GPL-3.0).
-- Núcleo NES: QuickNES para Android ARM64/ARMv7, vindo do [buildbot oficial Libretro](https://buildbot.libretro.com/nightly/android/latest/).
-- Não inclui ROMs ou BIOS de jogos comerciais.
+- [LibretroDroid](https://github.com/Swordfish90/LibretroDroid) (GPL-3.0), frontend nativo Android com estados salvos e controles.
+- [QuickNES para Android](https://buildbot.libretro.com/nightly/android/latest/) (Libretro buildbot).
+- Relay Socket.IO configurado no serviço deste projeto.
+- Nenhuma ROM/BIOS comercial é fornecida.
