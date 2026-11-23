@@ -411,7 +411,7 @@ class MainActivity : AppCompatActivity() {
         chatLog = log
         val scroll = android.widget.ScrollView(this).apply {
             isFillViewport = true
-            addView(log, android.widget.ScrollView.LayoutParams(-1, -2))
+            addView(log)
         }
         val entry = EditText(this).apply {
             hint = "Escreva uma mensagem"
