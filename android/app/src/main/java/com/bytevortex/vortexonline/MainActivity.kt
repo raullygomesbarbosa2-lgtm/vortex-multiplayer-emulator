@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private var romId: String = ""
     private var systemId: String = "nes"
     private var systemLabel: String = "Nintendo NES"
+    private var signedInEmail: String? = null
+    private lateinit var accountStatus: TextView
 
     companion object { private const val PICK_ROM = 4012 }
 
@@ -50,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         setContentView(root)
         showHome()
+        restoreFirebaseSession()
     }
 
     private fun showHome() {
@@ -77,6 +80,18 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.LTGRAY); textSize = 14f; gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(18))
         }
+        accountStatus = TextView(this).apply {
+            text = signedInEmail?.let { "Conectado como $it" } ?: "Modo solo disponível sem conta; login opcional para sua conta Firebase."
+            setTextColor(Color.rgb(177, 195, 184)); textSize = 12f; gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(6))
+        }
+        val accountButton = button(if (signedInEmail == null) "ENTRAR / CRIAR CONTA" else "SAIR DA CONTA") {
+            if (signedInEmail == null) openAuthDialog() else {
+                FirebaseSessionStore(this).clear()
+                signedInEmail = null
+                showHome()
+            }
+        }
         val pick = button("ESCOLHER ROM NES / SNES") { pickRom() }
         val multiplayer = TextView(this).apply {
             text = "SALAS ONLINE EXPERIMENTAIS: relay de comandos; netplay sincronizado ainda em desenvolvimento"
@@ -87,8 +102,106 @@ class MainActivity : AppCompatActivity() {
             text = "NES e Super Nintendo rodam nativamente, sem WebView. Selecione suas ROMs .nes/.sfc/.smc ou ZIP. Não incluí jogos nem ROMs. Multiplayer ainda retransmite comandos sem sincronizar quadros; pode dessincronizar."
             setTextColor(Color.rgb(177, 195, 184)); textSize = 12f; gravity = Gravity.CENTER
         }
-        listOf(logo, heading, status, pick, multiplayer, disclosure).forEach { panel.addView(it, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)) }
+        listOf(logo, heading, status, accountStatus, accountButton, pick, multiplayer, disclosure).forEach { panel.addView(it, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)) }
         root.addView(panel, FrameLayout.LayoutParams(-1, -1))
+    }
+
+    private fun firebaseAuthClient() = FirebaseAuthClient(BuildConfig.FIREBASE_API_KEY)
+
+    private fun restoreFirebaseSession() {
+        Thread {
+            try {
+                val saved = FirebaseSessionStore(this).read() ?: return@Thread
+                val user = firebaseAuthClient().refreshSession(saved.refreshToken, saved.email)
+                FirebaseSessionStore(this).save(user.email, user.refreshToken)
+                runOnUiThread {
+                    signedInEmail = user.email
+                    if (retroView == null) showHome()
+                }
+            } catch (_: Exception) {
+                FirebaseSessionStore(this).clear()
+            }
+        }.start()
+    }
+
+    private fun openAuthDialog() {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), 0)
+        }
+        val email = EditText(this).apply {
+            hint = "E-mail"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            singleLine = true
+        }
+        val password = EditText(this).apply {
+            hint = "Senha (mínimo 6 caracteres para criar conta)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            singleLine = true
+        }
+        form.addView(email)
+        form.addView(password)
+        AlertDialog.Builder(this)
+            .setTitle("Conta Firebase")
+            .setMessage("Entre ou crie uma conta com e-mail e senha. O modo solo não exige login.")
+            .setView(form)
+            .setPositiveButton("Entrar") { _, _ -> authenticate(email.text.toString(), password.text.toString(), false) }
+            .setNeutralButton("Criar conta") { _, _ -> authenticate(email.text.toString(), password.text.toString(), true) }
+            .setNegativeButton("Recuperar senha") { _, _ -> openPasswordResetDialog(email.text.toString()) }
+            .show()
+    }
+
+    private fun authenticate(emailInput: String, passwordInput: String, create: Boolean) {
+        val email = emailInput.trim()
+        if (email.isBlank() || !email.contains("@") || passwordInput.isBlank()) {
+            Toast.makeText(this, "Informe um e-mail e uma senha.", Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, if (create) "Criando conta…" else "Entrando…", Toast.LENGTH_SHORT).show()
+        Thread {
+            try {
+                val user = if (create) firebaseAuthClient().signUp(email, passwordInput) else firebaseAuthClient().signIn(email, passwordInput)
+                FirebaseSessionStore(this).save(user.email, user.refreshToken)
+                runOnUiThread {
+                    signedInEmail = user.email
+                    Toast.makeText(this, if (create) "Conta criada e conectada." else "Login realizado.", Toast.LENGTH_LONG).show()
+                    showHome()
+                }
+            } catch (e: Exception) {
+                val message = e.message ?: "Confira a internet e a configuração do Firebase."
+                runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
+            }
+        }.start()
+    }
+
+    private fun openPasswordResetDialog(prefill: String) {
+        val email = EditText(this).apply {
+            hint = "E-mail da conta"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            setText(prefill)
+            singleLine = true
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Recuperar senha")
+            .setMessage("O Firebase enviará um e-mail de recuperação, se a conta existir.")
+            .setView(email)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Enviar") { _, _ ->
+                val address = email.text.toString().trim()
+                if (address.isBlank() || !address.contains("@")) {
+                    Toast.makeText(this, "Informe um e-mail válido.", Toast.LENGTH_LONG).show()
+                } else {
+                    Thread {
+                        try {
+                            firebaseAuthClient().sendPasswordReset(address)
+                            runOnUiThread { Toast.makeText(this, "Pedido de recuperação enviado ao Firebase.", Toast.LENGTH_LONG).show() }
+                        } catch (e: Exception) {
+                            val message = e.message ?: "Não consegui pedir a recuperação."
+                            runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
+                        }
+                    }.start()
+                }
+            }.show()
     }
 
     private fun pickRom() {

@@ -1,6 +1,6 @@
 # Vortex Online — protótipo Android nativo e multiplayer alpha
 
-A versão Android está sendo reconstruída para rodar jogos no aparelho sem WebView.
+A versão Android roda jogos no aparelho sem WebView. Alpha 8 adiciona cadastro/login e recuperação de senha por Firebase Authentication, além de guardar a sessão de atualização criptografada pelo Android Keystore. Login é opcional: o modo solo continua disponível sem conta.
 
 ## O que há nesta alpha
 
@@ -12,6 +12,13 @@ A versão Android está sendo reconstruída para rodar jogos no aparelho sem Web
 ## ROMs
 
 O app não distribui nenhum jogo, ROM ou BIOS. O jogador escolhe um arquivo próprio no aparelho. Formatos aceitos: `.nes`, `.sfc`, `.smc`, ou ZIP contendo um desses arquivos.
+
+## Conta Firebase
+
+- O app oferece criar conta, entrar com e-mail/senha e solicitar recuperação por e-mail usando o Firebase Authentication REST API.
+- O provedor **E-mail/senha** precisa estar habilitado no projeto Firebase, e a chave pública do cliente deve estar disponível como variável de repositório `FIREBASE_API_KEY` na CI.
+- O modo solo não exige login. O refresh token é armazenado cifrado com AES-GCM e uma chave Android Keystore; a senha nunca é salva.
+- O estado de login é para a conta no Firebase; não significa que salas ou partida online estejam autenticadas/sincronizadas.
 
 ## Multiplayer
 

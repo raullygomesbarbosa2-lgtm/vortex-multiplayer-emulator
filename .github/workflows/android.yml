@@ -26,19 +26,21 @@ jobs:
           cmdline-tools-version: '12266719'
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - name: Compilar APK nativo
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
         run: gradle --no-daemon -p android assembleDebug
       - name: Guardar APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: Vortex-Online-Native-SNES-Controls-Alpha-APK
+          name: Vortex-Online-Native-Alpha-8-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publicar APK nativo de teste
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-native-alpha-7
-          name: Vortex Online Native Alpha 7 (SNES controls)
+          tag_name: android-native-alpha-8
+          name: Vortex Online Native Alpha 8 (Firebase email login)
           prerelease: true
-          body: 'Alpha Android nativa sem WebView com núcleos NES QuickNES e Super Nintendo Snes9x (Android ARM64/ARMv7), com controles virtuais SNES A/B/X/Y/L/R/Start/Select. O seletor abre ROMs próprias .nes/.sfc/.smc e ZIP contendo um desses formatos; nenhuma ROM ou jogo vem incluído. Compilação CI passou; abrir jogo/aparelho real não foi validado. Relay multiplayer experimental retransmite comandos, sem sincronização determinística por quadro. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
+          body: 'Alpha 8 Android nativa sem WebView, Android 6+ ARM64/ARMv7. NES QuickNES e SNES Snes9x com controles virtuais; ROMs são fornecidas pelo usuário, sem jogos incluídos. Inclui cadastro/login por e-mail e senha e pedido de recuperação via Firebase Authentication. O projeto Firebase precisa ter o provedor E-mail/senha habilitado. O modo solo funciona sem login. CI compilou o APK; não houve teste em aparelho real. Multiplayer continua como relay experimental de comandos, sem sincronização determinística por quadro; não considerar netplay validado. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: false

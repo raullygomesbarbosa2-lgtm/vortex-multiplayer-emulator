@@ -11,10 +11,13 @@ android {
         applicationId 'com.bytevortex.vortexonline'
         minSdk 23
         targetSdk 28
-        versionCode 8
-        versionName '0.8.0-native-snes-alpha'
+        versionCode 9
+        versionName '0.9.0-native-snes-alpha'
+        buildConfigField 'String', 'FIREBASE_API_KEY', '\"' + (System.getenv('FIREBASE_API_KEY') ?: '') + '\"'
         ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
     }
+
+    buildFeatures { buildConfig true }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
