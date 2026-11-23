@@ -41,6 +41,8 @@ class MainActivity : AppCompatActivity() {
     private var systemLabel: String = "Nintendo NES"
     private var signedInEmail: String? = null
     private lateinit var accountStatus: TextView
+    private var chatLog: TextView? = null
+    private var chatPanel: View? = null
 
     companion object { private const val PICK_ROM = 4012 }
 
@@ -310,6 +312,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun startNativeGame(rom: File, system: String) {
         root.removeAllViews()
+        chatPanel = null
+        chatLog = null
         systemId = system
         systemLabel = if (system == "snes") "Super Nintendo" else "NES"
         val coreName = if (system == "snes") "libsnes9x_libretro_android.so" else "libquicknes_libretro_android.so"
@@ -345,8 +349,9 @@ class MainActivity : AppCompatActivity() {
         roomStatus = TextView(this).apply { text = "$systemLabel local • ROM ${romId.takeLast(8)}"; setTextColor(Color.WHITE); textSize = 10f; maxLines = 2 }
         val create = miniButton("CRIAR") { openRoomDialog(true) }
         val join = miniButton("ENTRAR") { openRoomDialog(false) }
+        val chat = miniButton("CHAT") { toggleChat() }
         val close = miniButton("VOLTAR") { closeGame() }
-        bar.addView(roomStatus, LinearLayout.LayoutParams(0, dp(42), 1f)); bar.addView(create); bar.addView(join); bar.addView(close)
+        bar.addView(roomStatus, LinearLayout.LayoutParams(0, dp(42), 1f)); bar.addView(create); bar.addView(join); bar.addView(chat); bar.addView(close)
         root.addView(bar, FrameLayout.LayoutParams(-1, dp(50), Gravity.TOP))
 
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(12)) }
@@ -377,6 +382,90 @@ class MainActivity : AppCompatActivity() {
 
         val lower = FrameLayout(this).apply { addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM)) }
         root.addView(lower, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        createChatPanel()
+    }
+
+    private fun createChatPanel() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(0xEE08140D.toInt())
+                setStroke(dp(1), 0xFF70FF9B.toInt())
+            }
+        }
+        val title = TextView(this).apply {
+            text = "CHAT DA SALA"
+            setTextColor(Color.rgb(112, 255, 155))
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+        val log = TextView(this).apply {
+            text = "Entre em uma sala para conversar.\n"
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            setPadding(dp(4), dp(5), dp(4), dp(5))
+        }
+        chatLog = log
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            addView(log, android.widget.ScrollView.LayoutParams(-1, -2))
+        }
+        val entry = EditText(this).apply {
+            hint = "Escreva uma mensagem"
+            textSize = 13f
+            setSingleLine(true)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(300))
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val send = miniButton("ENVIAR") {
+            val text = entry.text.toString().trim()
+            if (text.isEmpty()) return@miniButton
+            val client = netplay
+            if (client?.sendChat(text) == true) {
+                appendChat("Você", text)
+                entry.text.clear()
+                scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+            } else {
+                Toast.makeText(this, "Conecte-se a uma sala para enviar mensagem.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        val composer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(entry, LinearLayout.LayoutParams(0, dp(44), 1f))
+            addView(send, LinearLayout.LayoutParams(dp(62), dp(44)))
+        }
+        panel.addView(title, LinearLayout.LayoutParams(-1, dp(24)))
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        panel.addView(composer, LinearLayout.LayoutParams(-1, dp(48)))
+        panel.visibility = View.GONE
+        chatPanel = panel
+        root.addView(panel, FrameLayout.LayoutParams(dp(275), dp(260), Gravity.TOP or Gravity.RIGHT).apply {
+            topMargin = dp(54)
+            rightMargin = dp(8)
+        })
+    }
+
+    private fun toggleChat() {
+        val panel = chatPanel ?: return
+        panel.visibility = if (panel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        if (panel.visibility == View.VISIBLE && netplay?.isConnected() != true) {
+            Toast.makeText(this, "O chat online fica disponível depois de entrar em uma sala.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun appendChat(sender: String, text: String) {
+        runOnUiThread {
+            val log = chatLog ?: return@runOnUiThread
+            log.append("$sender: ${text.replace('\n', ' ')}\n")
+            val maxChars = 6000
+            if (log.text.length > maxChars) log.text = log.text.subSequence(log.text.length - maxChars, log.text.length)
+        }
     }
 
     private fun controlButton(label: String, key: Int): TextView {
@@ -434,6 +523,12 @@ class MainActivity : AppCompatActivity() {
             override fun onRemoteInput(action: Int, keyCode: Int, sequence: Long) = runOnUiThread {
                 retroView?.sendKeyEvent(action, keyCode, netplay?.remotePort() ?: 0)
             }
+            override fun onChatMessage(sender: String, text: String) {
+                appendChat(sender, text)
+                runOnUiThread {
+                    chatPanel?.visibility = View.VISIBLE
+                }
+            }
             override fun onRoomError(text: String) = runOnUiThread {
                 roomStatus?.text = "Falha na sala"
                 Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
@@ -454,6 +549,8 @@ class MainActivity : AppCompatActivity() {
         netplay?.disconnect()
         netplay = null
         roomStatus = null
+        chatPanel = null
+        chatLog = null
         retroView?.let { lifecycle.removeObserver(it) }
         retroView = null
         showHome()

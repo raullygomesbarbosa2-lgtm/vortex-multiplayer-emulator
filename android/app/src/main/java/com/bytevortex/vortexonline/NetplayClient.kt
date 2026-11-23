@@ -17,6 +17,7 @@ class NetplayClient(
         fun onStatus(text: String)
         fun onRoomPlayers(count: Int)
         fun onRemoteInput(action: Int, keyCode: Int, sequence: Long)
+        fun onChatMessage(sender: String, text: String)
         fun onRoomError(text: String)
     }
 
@@ -91,6 +92,11 @@ class NetplayClient(
                 try {
                     val packet = args.firstOrNull() as? JSONObject ?: return@on
                     if (packet.optString("romId") != romId || packet.optString("playerId") == playerId) return@on
+                    if (packet.optString("type") == "chat") {
+                        val text = packet.optString("text").trim().take(300)
+                        if (text.isNotEmpty()) listener.onChatMessage(packet.optString("playerName", "Jogador"), text)
+                        return@on
+                    }
                     listener.onRemoteInput(packet.optInt("action"), packet.optInt("keyCode"), packet.optLong("sequence"))
                 } catch (e: Exception) { Log.w("VortexNetplay", "Invalid input event", e) }
             }
@@ -111,6 +117,22 @@ class NetplayClient(
             .put("sequence", sequence.incrementAndGet())
             .put("sentAt", System.currentTimeMillis())
         s.emit("input", packet)
+    }
+
+    fun sendChat(text: String): Boolean {
+        val clean = text.trim().take(300)
+        val s = socket ?: return false
+        if (!s.connected() || clean.isEmpty()) return false
+        val packet = JSONObject()
+            .put("type", "chat")
+            .put("playerId", playerId)
+            .put("playerName", if (host) "Host" else "Convidado")
+            .put("romId", romId)
+            .put("text", clean)
+            .put("sequence", sequence.incrementAndGet())
+            .put("sentAt", System.currentTimeMillis())
+        s.emit("input", packet)
+        return true
     }
 
     fun localPort(): Int = if (host) 0 else 1

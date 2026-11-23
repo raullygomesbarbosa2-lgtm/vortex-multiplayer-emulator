@@ -1,6 +1,6 @@
 # Vortex Online — protótipo Android nativo e multiplayer alpha
 
-A versão Android roda jogos no aparelho sem WebView. Alpha 8 adiciona cadastro/login e recuperação de senha por Firebase Authentication, além de guardar a sessão de atualização criptografada pelo Android Keystore. Login é opcional: o modo solo continua disponível sem conta.
+A versão Android roda jogos no aparelho sem WebView. Alpha 9 adiciona cadastro/login e recuperação de senha por Firebase Authentication, além de guardar a sessão de atualização criptografada pelo Android Keystore. Login é opcional: o modo solo continua disponível sem conta.
 
 ## O que há nesta alpha
 
@@ -59,3 +59,8 @@ Um relay de comandos não é prova de que o jogo está sincronizado. Os jogadore
 ## Controles SNES na build Alpha 7
 
 A tela inclui direcional, A/B/X/Y, L/R, Start e Select. A interface e o jogo rodam nativamente no Android, sem WebView. O multiplayer segue experimental: retransmite comandos, mas não sincroniza os quadros da emulação.
+
+
+## Chat em partida (Alpha 9)
+
+Botão CHAT abre uma sobreposição durante o jogo. Em uma sala conectada, mensagens curtas (até 300 caracteres) são enviadas no evento de relay existente, identificadas como texto para os clientes Alpha 9; não é um canal separado e pode ser incompatível com clientes antigos. O chat ainda requer uma sessão real em dois aparelhos para validar a entrega ponta a ponta.

@@ -32,15 +32,15 @@ jobs:
       - name: Guardar APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: Vortex-Online-Native-Alpha-8-APK
+          name: Vortex-Online-Native-Alpha-9-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publicar APK nativo de teste
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-native-alpha-8
-          name: Vortex Online Native Alpha 8 (Firebase email login)
+          tag_name: android-native-alpha-9
+          name: Vortex Online Native Alpha 9 (in-game room chat)
           prerelease: true
-          body: 'Alpha 8 Android nativa sem WebView, Android 6+ ARM64/ARMv7. NES QuickNES e SNES Snes9x com controles virtuais; ROMs são fornecidas pelo usuário, sem jogos incluídos. Inclui cadastro/login por e-mail e senha e pedido de recuperação via Firebase Authentication. O projeto Firebase precisa ter o provedor E-mail/senha habilitado. O modo solo funciona sem login. CI compilou o APK; não houve teste em aparelho real. Multiplayer continua como relay experimental de comandos, sem sincronização determinística por quadro; não considerar netplay validado. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
+          body: 'Alpha 9 Android nativa sem WebView, Android 6+ ARM64/ARMv7. NES QuickNES e SNES Snes9x com controles virtuais; ROMs são fornecidas pelo usuário, sem jogos incluídos. Inclui cadastro/login por e-mail e senha e pedido de recuperação via Firebase Authentication. O projeto Firebase precisa ter o provedor E-mail/senha habilitado. O modo solo funciona sem login. Adiciona chat em sobreposição na partida e envia mensagens pela sala via relay de eventos já existente. CI compila o APK; chat remoto ainda precisa de validação com dois aparelhos. Netplay retransmite comandos e não sincroniza deterministicamente os quadros; não considerar gameplay online validado. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: false
