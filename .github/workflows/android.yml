@@ -30,15 +30,15 @@ jobs:
       - name: Guardar APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: Vortex-Online-Native-NES-SNES-Alpha-APK
+          name: Vortex-Online-Native-SNES-Controls-Alpha-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publicar APK nativo de teste
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-native-alpha-6
-          name: Vortex Online Native Alpha 6 (SNES core)
+          tag_name: android-native-alpha-7
+          name: Vortex Online Native Alpha 7 (SNES controls)
           prerelease: true
-          body: 'Alpha Android nativa sem WebView com núcleos NES QuickNES e Super Nintendo Snes9x (Android ARM64/ARMv7). O seletor abre ROMs próprias .nes/.sfc/.smc e ZIP contendo um desses formatos; nenhuma ROM ou jogo vem incluído. Compilação CI passou; abrir jogo/aparelho real não foi validado. Relay multiplayer experimental, sem sincronização determinística por quadro. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
+          body: 'Alpha Android nativa sem WebView com núcleos NES QuickNES e Super Nintendo Snes9x (Android ARM64/ARMv7), com controles virtuais SNES A/B/X/Y/L/R/Start/Select. O seletor abre ROMs próprias .nes/.sfc/.smc e ZIP contendo um desses formatos; nenhuma ROM ou jogo vem incluído. Compilação CI passou; abrir jogo/aparelho real não foi validado. Relay multiplayer experimental retransmite comandos, sem sincronização determinística por quadro. Snes9x está sob licença não comercial: não redistribua em produto comercial sem autorização dos titulares.'
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: false

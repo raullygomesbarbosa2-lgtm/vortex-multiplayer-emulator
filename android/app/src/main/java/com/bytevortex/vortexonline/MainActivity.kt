@@ -79,12 +79,12 @@ class MainActivity : AppCompatActivity() {
         }
         val pick = button("ESCOLHER ROM NES / SNES") { pickRom() }
         val multiplayer = TextView(this).apply {
-            text = "MULTIPLAYER À DISTÂNCIA: salas e relay de comandos em alpha"
+            text = "SALAS ONLINE EXPERIMENTAIS: relay de comandos; netplay sincronizado ainda em desenvolvimento"
             setTextColor(Color.rgb(255, 213, 120)); textSize = 13f; gravity = Gravity.CENTER
             setPadding(0, dp(24), 0, dp(5))
         }
         val disclosure = TextView(this).apply {
-            text = "NES e Super Nintendo rodam nativamente, sem WebView. Selecione suas ROMs .nes/.sfc/.smc ou ZIP. Não incluí jogos nem ROMs. Multiplayer ainda é experimental e pode dessincronizar."
+            text = "NES e Super Nintendo rodam nativamente, sem WebView. Selecione suas ROMs .nes/.sfc/.smc ou ZIP. Não incluí jogos nem ROMs. Multiplayer ainda retransmite comandos sem sincronizar quadros; pode dessincronizar."
             setTextColor(Color.rgb(177, 195, 184)); textSize = 12f; gravity = Gravity.CENTER
         }
         listOf(logo, heading, status, pick, multiplayer, disclosure).forEach { panel.addView(it, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)) }
@@ -236,22 +236,31 @@ class MainActivity : AppCompatActivity() {
         bar.addView(roomStatus, LinearLayout.LayoutParams(0, dp(42), 1f)); bar.addView(create); bar.addView(join); bar.addView(close)
         root.addView(bar, FrameLayout.LayoutParams(-1, dp(50), Gravity.TOP))
 
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(16)) }
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(12)) }
         val dpad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
         val middle = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        dpad.addView(controlButton("↑", KeyEvent.KEYCODE_DPAD_UP), LinearLayout.LayoutParams(dp(56), dp(54)))
-        middle.addView(controlButton("←", KeyEvent.KEYCODE_DPAD_LEFT), LinearLayout.LayoutParams(dp(56), dp(54)))
-        middle.addView(View(this), LinearLayout.LayoutParams(dp(48), dp(54)))
-        middle.addView(controlButton("→", KeyEvent.KEYCODE_DPAD_RIGHT), LinearLayout.LayoutParams(dp(56), dp(54)))
+        dpad.addView(controlButton("↑", KeyEvent.KEYCODE_DPAD_UP), LinearLayout.LayoutParams(dp(48), dp(44)))
+        middle.addView(controlButton("←", KeyEvent.KEYCODE_DPAD_LEFT), LinearLayout.LayoutParams(dp(48), dp(44)))
+        middle.addView(View(this), LinearLayout.LayoutParams(dp(40), dp(44)))
+        middle.addView(controlButton("→", KeyEvent.KEYCODE_DPAD_RIGHT), LinearLayout.LayoutParams(dp(48), dp(44)))
         dpad.addView(middle)
-        dpad.addView(controlButton("↓", KeyEvent.KEYCODE_DPAD_DOWN), LinearLayout.LayoutParams(dp(56), dp(54)))
+        dpad.addView(controlButton("↓", KeyEvent.KEYCODE_DPAD_DOWN), LinearLayout.LayoutParams(dp(48), dp(44)))
         controls.addView(dpad, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        val face = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        face.addView(controlButton("B", KeyEvent.KEYCODE_BUTTON_B), LinearLayout.LayoutParams(dp(60), dp(60)))
-        face.addView(View(this), LinearLayout.LayoutParams(dp(12), dp(60)))
-        face.addView(controlButton("A", KeyEvent.KEYCODE_BUTTON_A), LinearLayout.LayoutParams(dp(60), dp(60)))
-        controls.addView(face)
+        val actionPad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        fun addRow(vararg buttons: Pair<String, Int>) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+            buttons.forEachIndexed { index, button ->
+                if (index > 0) row.addView(View(this), LinearLayout.LayoutParams(dp(5), dp(40)))
+                row.addView(controlButton(button.first, button.second), LinearLayout.LayoutParams(dp(48), dp(40)))
+            }
+            actionPad.addView(row)
+        }
+        addRow("L" to KeyEvent.KEYCODE_BUTTON_L1, "R" to KeyEvent.KEYCODE_BUTTON_R1)
+        addRow("Y" to KeyEvent.KEYCODE_BUTTON_Y, "X" to KeyEvent.KEYCODE_BUTTON_X)
+        addRow("B" to KeyEvent.KEYCODE_BUTTON_B, "A" to KeyEvent.KEYCODE_BUTTON_A)
+        addRow("SELECT" to KeyEvent.KEYCODE_BUTTON_SELECT, "START" to KeyEvent.KEYCODE_BUTTON_START)
+        controls.addView(actionPad, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
         val lower = FrameLayout(this).apply { addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM)) }
         root.addView(lower, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))

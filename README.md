@@ -47,3 +47,8 @@ Um relay de comandos não é prova de que o jogo está sincronizado. Os jogadore
 - [QuickNES para Android](https://buildbot.libretro.com/nightly/android/latest/) (Libretro buildbot).
 - Relay Socket.IO configurado no serviço deste projeto.
 - Nenhuma ROM/BIOS comercial é fornecida.
+
+
+## Controles SNES na build Alpha 7
+
+A tela inclui direcional, A/B/X/Y, L/R, Start e Select. A interface e o jogo rodam nativamente no Android, sem WebView. O multiplayer segue experimental: retransmite comandos, mas não sincroniza os quadros da emulação.
