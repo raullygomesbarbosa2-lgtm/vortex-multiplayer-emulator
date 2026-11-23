@@ -132,12 +132,12 @@ class MainActivity : AppCompatActivity() {
         val email = EditText(this).apply {
             hint = "E-mail"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-            singleLine = true
+            setSingleLine(true)
         }
         val password = EditText(this).apply {
             hint = "Senha (mínimo 6 caracteres para criar conta)"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            singleLine = true
+            setSingleLine(true)
         }
         form.addView(email)
         form.addView(password)
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             hint = "E-mail da conta"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             setText(prefill)
-            singleLine = true
+            setSingleLine(true)
         }
         AlertDialog.Builder(this)
             .setTitle("Recuperar senha")
